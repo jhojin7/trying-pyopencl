@@ -1,6 +1,6 @@
 import pickle
+import torchvision
 import numpy as np
-import torch, torchvision
 import PIL.Image as im
 
 # # download CIFAR10 dataset
@@ -27,18 +27,20 @@ def get_images(INDEX:int):
 
     LABEL:int = dict[b"labels"][INDEX] #6
     FNAME = str(dict[b"filenames"][INDEX],encoding="utf8") 
-    FNAME = label_names[LABEL].upper() + "_" + FNAME # add label in front of fname
+    # add label in front of fname
+    FNAME = "./cifar10/__" + label_names[LABEL].upper()\
+        + "_" + FNAME 
     IMGDATA = dict[b"data"][INDEX] #3072=32*32*3
     print(label_names[LABEL], FNAME,IMGDATA, sep="\t")
 
-    imgdata = _img_reshape(IMGDATA,(32,32,3),'F')
+    imgdata = _img_reshape(IMGDATA,(32,32,3),'F')#CFAK
     # image = _imshow(imgdata,f"{label_names[LABEL]}.jpg")
     image = _imshow(imgdata,FNAME)
-    return IMGDATA
+    return (FNAME,imgdata)
 
 # make 2D matrix for img preview
 def _img_reshape(imgdata,shape,order="F"):
-    arr = np.array(imgdata).reshape(*shape,order=order)#CFAK
+    arr = np.array(imgdata).reshape(*shape,order=order)
     # print(arr, arr.size)
     return arr
 
@@ -52,5 +54,12 @@ def _imshow(imgdata,fname):
     return image
 
 if __name__ == "__main__":
+
+    dict = {}
     for i in range(10,20): #set index range
-        get_images(i)
+        fname, data = get_images(i)
+        dict[fname] = data.tolist()
+    with open("./cifar10/sample_bin_data.json","w") as f:
+        import json
+        json.dump(dict,f,ensure_ascii=True)
+        f.close()
