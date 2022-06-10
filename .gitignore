@@ -1,2 +1,4 @@
 ignored.py
 cifar10/
+__pycache__/
+notes.md
