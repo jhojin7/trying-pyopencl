@@ -48,9 +48,9 @@ def matmul_opencl(A,B,_context:Context)->bool:
     # initialize buffers
     mf = cl.mem_flags
     buf_A = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR,
-            size=0, hostbuf=A) # ro, use host memory
+            size=0, hostbuf=A) # ro, copy host memory
     buf_B = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR,
-            size=0, hostbuf=B) # ro, use host memory
+            size=0, hostbuf=B) # ro, copy host memory
     buf_C = cl.Buffer(ctx, mf.WRITE_ONLY, A.nbytes) # wo
 
     # program object
@@ -80,19 +80,20 @@ def matmul_opencl(A,B,_context:Context)->bool:
     return (C.all() == np.matmul(A,B).all())
 
 if __name__ == "__main__":
-    ############################################################
+############################################################
+    dims = (1,1)# set matrix dims
     repeat = 10
-    setup = "A,B,C,C2 = init_mat(128,128)" # set matrix dims
-    ############################################################
+############################################################
     times1, times2 = [], []
     ctx = Context()
+    setup = f"A,B,C,C2 = init_mat({dims[0]},{dims[1]})" 
     for _ in range(repeat):
         check = None
         time = timeit(setup=setup,
                 stmt="global check; check = matmul_seq(A,B,C,C2)",
                 globals=globals(),number=1)
         times1.append(time)
-        print("Sequential:\t%.10f"%(time), "Check:",check)
+        print("Sequential:\t{:>15.10}".format(time), "Check:",check)
 
     # for _ in range(repeat):
         check = None
@@ -100,16 +101,17 @@ if __name__ == "__main__":
                 stmt="global check;check = matmul_opencl(A,B,ctx)",
                 globals=globals(),number=1)
         times2.append(time)
-        print("Parallel:\t%.10f"%(time), "Check:",check)
+        print("Parallel:\t{:>15.10}".format(time), "Check:",check)
     
     # find avg and compare runtime
     avg1 = sum(times1)/len(times1)
     avg2 = sum(times2)/len(times2)
-    print("Sequential Avg: {:.10}, Parallel Avg: {:.10}, %Diff: {:2.2%}" 
-        .format(avg1, avg2, (avg1-avg2)/100))
+    print("dims:{}, repeat:{}, Sequential Avg:{:.10}, Parallel Avg:{:.10}, %Diff:{:2.2%}" 
+        .format(dims, repeat, avg1, avg2, (avg1-avg2)/100))
 
-# Sequential Avg: 1.57428958, Parallel Avg: 0.00841468, %Diff: 1.57%
-# Sequential Avg: 1.90243066, Parallel Avg: 0.0083473, %Diff: 1.89%
-# Sequential Avg: 1.64011628, Parallel Avg: 0.00776567, %Diff: 1.63%
-# Sequential Avg: 1.76802083, Parallel Avg: 0.00832786, %Diff: 1.76%
-# Sequential Avg: 2.13041885, Parallel Avg: 0.01004678, %Diff: 2.12%
+# dims:(512, 512), repeat:10, Sequential Avg:79.26608898, Parallel Avg:0.03145347, %Diff:79.23%
+# dims:(256, 256), repeat:10, Sequential Avg:10.24858583, Parallel Avg:0.00943937, %Diff:10.24%
+# dims:(128, 128), repeat:10, Sequential Avg:1.48185113, Parallel Avg:0.00692967, %Diff:1.47%
+# dims:(64, 64), repeat:10, Sequential Avg:0.34035609, Parallel Avg:0.00820055, %Diff:0.33%
+# dims:(32, 32), repeat:10, Sequential Avg:0.03044225, Parallel Avg:0.00846046, %Diff:0.02%
+# dims:(1, 1), repeat:10, Sequential Avg:6.958e-05, Parallel Avg:0.00490782, %Diff:-0.00%
