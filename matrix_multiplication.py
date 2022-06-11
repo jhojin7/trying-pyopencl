@@ -81,7 +81,7 @@ def matmul_opencl(A,B,_context:Context)->bool:
 
 if __name__ == "__main__":
 ############################################################
-    dims = (1,1)# set matrix dims
+    dims = (128,128)# set matrix dims
     repeat = 10
 ############################################################
     times1, times2 = [], []
@@ -106,12 +106,5 @@ if __name__ == "__main__":
     # find avg and compare runtime
     avg1 = sum(times1)/len(times1)
     avg2 = sum(times2)/len(times2)
-    print("dims:{}, repeat:{}, Sequential Avg:{:.10}, Parallel Avg:{:.10}, %Diff:{:2.2%}" 
-        .format(dims, repeat, avg1, avg2, (avg1-avg2)/100))
-
-# dims:(512, 512), repeat:10, Sequential Avg:79.26608898, Parallel Avg:0.03145347, %Diff:79.23%
-# dims:(256, 256), repeat:10, Sequential Avg:10.24858583, Parallel Avg:0.00943937, %Diff:10.24%
-# dims:(128, 128), repeat:10, Sequential Avg:1.48185113, Parallel Avg:0.00692967, %Diff:1.47%
-# dims:(64, 64), repeat:10, Sequential Avg:0.34035609, Parallel Avg:0.00820055, %Diff:0.33%
-# dims:(32, 32), repeat:10, Sequential Avg:0.03044225, Parallel Avg:0.00846046, %Diff:0.02%
-# dims:(1, 1), repeat:10, Sequential Avg:6.958e-05, Parallel Avg:0.00490782, %Diff:-0.00%
+    print("dims:{}, repeat:{}, Sequential Avg:{:.10}, Parallel Avg:{:.10}" 
+        .format(dims, repeat, avg1, avg2))
