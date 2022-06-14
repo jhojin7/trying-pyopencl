@@ -1,14 +1,12 @@
 from timeit import timeit
 import json
+from time import time
 
 import pyopencl as cl
 import numpy as np
-import torch
+from tqdm import tqdm
 
 import getimages
-
-SAMPLE_BIN = "./cifar10/sample_bin_data.json"
-IMG = "./cifar10/__DEER_muntjac_s_001000.png"
 
 #### traversing a 3d array
 def init_3darray(_shape:np.shape, _dtype:np.dtype):
@@ -51,36 +49,63 @@ def convolution(A,filter):
 
     return C
 
+def conv_opencl(A,filter):
+    from matrix_multiplication import Context
+    mf = cl.mem_flags
+    # build program and kernel
+    CL = Context()
+    kernel = CL.build_matmul()
+
+    C = np.zeros_like(A)#,dtype="float64")
+    # filter buffer allocation
+    buf_filt = cl.Buffer(CL.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR,
+        size=0, hostbuf=filter) # ro, copy host memory
+    # convolve
+    paddedA = np.pad(A,1)[1:A.shape[0]+1]
+    for k in range(paddedA.shape[0]):
+        for i in range(A.shape[1]):
+            for j in range(A.shape[2]):
+                tmpA = paddedA[k,i:i+3,j:j+3].flatten()
+                tmpC = np.empty_like(filter)
+                # np.matmul(tmpA,filter,tmpC)
+                # C[k,i,j] = tmpC.sum()/np.count_nonzero(filter)
+
+                # initialize buffers
+                buf_tmpA = cl.Buffer(CL.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR,
+                        hostbuf=tmpA) # ro, copy host memory
+                # make and set arguments
+                buf_tmpC = cl.Buffer(CL.ctx, mf.WRITE_ONLY, tmpC.nbytes) # wo
+                # row_tmpA = np.uint32(3)
+                # col_tmpA = np.uint32(3)
+                # col_filt = np.uint32(filter.shape[1])
+
+                # matmul
+                kernel(CL.queue, tmpA.shape, None, buf_tmpA, buf_filt, buf_tmpC,
+                    np.uint32(3), np.uint32(3), np.uint32(3))
+                    # row_tmpA, col_tmpA, col_filt) # parse Clang integer
+                cl.enqueue_copy(CL.queue, tmpC, buf_tmpC)
+                C[k,i,j] = tmpC.sum()/np.count_nonzero(filter)
+    return C
+
 if __name__=="__main__":
+    """filters"""
+    ones = np.ones((3,3),dtype=np.uint32)
+
     """input data"""
     fname, data = getimages.get_images(20)
-    print(data.shape)
-    getimages._imshow(data)
-    # A = init_3darray(data.shape, np.int64)
-    # A.fill(1)
-
-    """filters"""
-    B = np.array([[0,0,1],
-                  [1,0,0],
-                  [0,1,1]], dtype=np.int64) # (3,3)
-    ones = np.ones_like(B)
-    intensifiedSharpen = np.array(
-    [[-1,-1,-1],[-1,9,-1],[-1,-1,-1]], dtype=np.int0) # (3,3)
-    laplacian = np.array((
-    [0, 1, 0],
-    [1, -4, 1],
-    [0, 1, 0]), dtype="int")
-    sharper = np.array((
-    [0, -1, 0],
-    [-1, 5, -1],
-    [0, -1, 0]), dtype="int")
-    horiz = np.array((
-    [-1, -2, -1],
-    [0,0,0],
-    [1,2,1]), dtype="int")
+    print(data.shape, type(data[0,0,0]))
+    # getimages._imshow(data)
 
     """conv"""
-    FILTER = B
+    FILTER = ones
+    start = time()
     C = convolution(data,FILTER)
-    print(C.shape)
-    getimages._imshow(C)
+    end = time()
+    print(C.shape, "seq time:", end-start)
+    start = time()
+    xC = conv_opencl(data,FILTER)
+    end = time()
+    print(xC.shape, "cl time:", end-start)
+    print(C[0,0,:])
+    print(xC[0,0,:])
+    # getimages._imshow(C)

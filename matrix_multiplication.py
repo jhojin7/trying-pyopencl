@@ -1,3 +1,4 @@
+from turtle import pos
 import pyopencl as cl
 import numpy as np
 from timeit import timeit
@@ -35,15 +36,36 @@ class Context:
         self.ctx = cl.Context([self.device])
         # ctx = cl.create_some_context()
         # cl.enable_debugging(self.platform)
+        self.queue = cl.CommandQueue(self.ctx)
 
     def print_info(self):
         print(self.platform)
         print(self.device)
         print(self.ctx)
+    
+    def build_matmul(self):
+        # program object
+        program = cl.Program(self.ctx, r"""
+        __kernel void matmul(
+            __global int* A, __global int* B, __global int* C,
+            int ROW_A, int COL_A, int COL_B) {
+            int i= get_global_id(1);
+            int j= get_global_id(0);
+            int k;
+            C[i * COL_B + j] = 0;
+            for (k = 0; k < COL_A; k++){
+                C[i * COL_B + j] += A[i * COL_A + k] * B[k * COL_B + j];
+                //printf("%d %d %d\n",C[i * COL_B + j],A[i * COL_A + k], B[k * COL_B + j]);
+            }
+        }
+        """).build()
+
+        # kernel object
+        return program.matmul
 
 def matmul_opencl(A,B,_context:Context)->bool:
     ctx = _context.ctx
-    queue = cl.CommandQueue(ctx)
+    queue = _context.queue
 
     # initialize buffers
     mf = cl.mem_flags
@@ -81,8 +103,8 @@ def matmul_opencl(A,B,_context:Context)->bool:
 
 if __name__ == "__main__":
 ############################################################
-    dims = (128,128)# set matrix dims
-    repeat = 10
+    dims = (3,3)# set matrix dims
+    repeat = 32*32*3
 ############################################################
     times1, times2 = [], []
     ctx = Context()
@@ -106,5 +128,5 @@ if __name__ == "__main__":
     # find avg and compare runtime
     avg1 = sum(times1)/len(times1)
     avg2 = sum(times2)/len(times2)
-    print("dims:{}, repeat:{}, Sequential Avg:{:.10}, Parallel Avg:{:.10}" 
-        .format(dims, repeat, avg1, avg2))
+    print("dims:{}, repeat:{}, Sequential Avg:{:.10}, Parallel Avg:{:.10}, diff:{:.10}" 
+        .format(dims, repeat, avg1, avg2, abs(avg1-avg2)))
